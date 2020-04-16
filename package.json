@@ -1,0 +1,13 @@
+{
+  "name": "wildrydes-serverless",
+  "description": "",
+  "version": "0.1.0",
+  "dependencies": {
+    "aws-xray-sdk": "^2.5.0",
+    "serverless-plugin-aws-alerts": "^1.4.0"
+  },
+  "devDependencies": {
+    "serverless-finch": "^2.5.2",
+    "serverless-plugin-canary-deployments": "^0.4.8"
+  }
+}

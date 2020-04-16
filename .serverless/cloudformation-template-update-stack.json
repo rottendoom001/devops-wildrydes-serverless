@@ -1,0 +1,600 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "The AWS CloudFormation template for this Serverless application",
+  "Resources": {
+    "ServerlessDeploymentBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "ServerlessDeploymentBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "ServerlessDeploymentBucket"
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Effect": "Deny",
+              "Principal": "*",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":s3:::",
+                      {
+                        "Ref": "ServerlessDeploymentBucket"
+                      },
+                      "/*"
+                    ]
+                  ]
+                }
+              ],
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": false
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "RequestUnicornLogGroup": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/wildrydes-serverless-dev-RequestUnicorn"
+      }
+    },
+    "IamRoleLambdaExecution": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "lambda.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": {
+              "Fn::Join": [
+                "-",
+                [
+                  "wildrydes-serverless-dev",
+                  "lambda"
+                ]
+              ]
+            },
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:CreateLogStream",
+                    "logs:CreateLogGroup"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/wildrydes-serverless-dev*:*"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "logs:PutLogEvents"
+                  ],
+                  "Resource": [
+                    {
+                      "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/wildrydes-serverless-dev*:*:*"
+                    }
+                  ]
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:PutItem"
+                  ],
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "DynamoTable",
+                      "Arn"
+                    ]
+                  }
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "xray:PutTraceSegments",
+                    "xray:PutTelemetryRecords"
+                  ],
+                  "Resource": [
+                    "*"
+                  ]
+                }
+              ]
+            }
+          }
+        ],
+        "Path": "/",
+        "RoleName": {
+          "Fn::Join": [
+            "-",
+            [
+              "wildrydes-serverless-dev",
+              {
+                "Ref": "AWS::Region"
+              },
+              "lambdaRole"
+            ]
+          ]
+        }
+      }
+    },
+    "RequestUnicornLambdaFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "ServerlessDeploymentBucket"
+          },
+          "S3Key": "serverless/wildrydes-serverless/dev/1586998379068-2020-04-16T00:52:59.068Z/wildrydes-serverless.zip"
+        },
+        "FunctionName": "wildrydes-serverless-dev-RequestUnicorn",
+        "Handler": "lambda_function/requestUnicorn.handler",
+        "MemorySize": 1024,
+        "Role": {
+          "Fn::GetAtt": [
+            "IamRoleLambdaExecution",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs10.x",
+        "Timeout": 6,
+        "TracingConfig": {
+          "Mode": "Active"
+        },
+        "Environment": {
+          "Variables": {
+            "dynamoTableName": "wildrydes-serverless-dev"
+          }
+        }
+      },
+      "DependsOn": [
+        "RequestUnicornLogGroup",
+        "IamRoleLambdaExecution"
+      ]
+    },
+    "RequestUnicornLambdaVersionlj6La2axhiMAxxObxld2u6CRAhko1jZBghokKLAW4pU": {
+      "Type": "AWS::Lambda::Version",
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "RequestUnicornLambdaFunction"
+        },
+        "CodeSha256": "yR6gf+P2WDFMBEd1tvuPG/ESGNVfrpMXfto9kYN+DQs="
+      }
+    },
+    "ApiGatewayRestApi": {
+      "Type": "AWS::ApiGateway::RestApi",
+      "Properties": {
+        "Name": "dev-wildrydes-serverless",
+        "EndpointConfiguration": {
+          "Types": [
+            "EDGE"
+          ]
+        },
+        "Policy": ""
+      }
+    },
+    "ApiGatewayResourceRide": {
+      "Type": "AWS::ApiGateway::Resource",
+      "Properties": {
+        "ParentId": {
+          "Fn::GetAtt": [
+            "ApiGatewayRestApi",
+            "RootResourceId"
+          ]
+        },
+        "PathPart": "ride",
+        "RestApiId": {
+          "Ref": "ApiGatewayRestApi"
+        }
+      }
+    },
+    "ApiGatewayMethodRideOptions": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "AuthorizationType": "NONE",
+        "HttpMethod": "OPTIONS",
+        "MethodResponses": [
+          {
+            "StatusCode": "200",
+            "ResponseParameters": {
+              "method.response.header.Access-Control-Allow-Origin": true,
+              "method.response.header.Access-Control-Allow-Headers": true,
+              "method.response.header.Access-Control-Allow-Methods": true
+            },
+            "ResponseModels": {}
+          }
+        ],
+        "RequestParameters": {},
+        "Integration": {
+          "Type": "MOCK",
+          "RequestTemplates": {
+            "application/json": "{statusCode:200}"
+          },
+          "ContentHandling": "CONVERT_TO_TEXT",
+          "IntegrationResponses": [
+            {
+              "StatusCode": "200",
+              "ResponseParameters": {
+                "method.response.header.Access-Control-Allow-Origin": "'*'",
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+                "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,POST'"
+              },
+              "ResponseTemplates": {
+                "application/json": "#set($origin = $input.params(\"Origin\"))\n#if($origin == \"\") #set($origin = $input.params(\"origin\")) #end\n#if($origin.matches(\".*\")) #set($context.responseOverride.header.Access-Control-Allow-Origin = $origin) #end"
+              }
+            }
+          ]
+        },
+        "ResourceId": {
+          "Ref": "ApiGatewayResourceRide"
+        },
+        "RestApiId": {
+          "Ref": "ApiGatewayRestApi"
+        }
+      }
+    },
+    "ApiGatewayMethodRidePost": {
+      "Type": "AWS::ApiGateway::Method",
+      "Properties": {
+        "HttpMethod": "POST",
+        "RequestParameters": {},
+        "ResourceId": {
+          "Ref": "ApiGatewayResourceRide"
+        },
+        "RestApiId": {
+          "Ref": "ApiGatewayRestApi"
+        },
+        "ApiKeyRequired": false,
+        "AuthorizationType": "COGNITO_USER_POOLS",
+        "AuthorizerId": {
+          "Ref": "1Underscorehjci6HPMMApiGatewayAuthorizer"
+        },
+        "Integration": {
+          "IntegrationHttpMethod": "POST",
+          "Type": "AWS_PROXY",
+          "Uri": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":apigateway:",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ":lambda:path/2015-03-31/functions/",
+                {
+                  "Fn::GetAtt": [
+                    "RequestUnicornLambdaFunction",
+                    "Arn"
+                  ]
+                },
+                "/invocations"
+              ]
+            ]
+          }
+        },
+        "MethodResponses": []
+      },
+      "DependsOn": "1Underscorehjci6HPMMApiGatewayAuthorizer"
+    },
+    "1Underscorehjci6HPMMApiGatewayAuthorizer": {
+      "Type": "AWS::ApiGateway::Authorizer",
+      "Properties": {
+        "AuthorizerResultTtlInSeconds": 300,
+        "IdentitySource": "method.request.header.Authorization",
+        "Name": "1_hjci6HPMM",
+        "RestApiId": {
+          "Ref": "ApiGatewayRestApi"
+        },
+        "Type": "COGNITO_USER_POOLS",
+        "ProviderARNs": [
+          "arn:aws:cognito-idp:us-east-1:450939501754:userpool/us-east-1_hjci6HPMM"
+        ]
+      }
+    },
+    "ApiGatewayDeployment1586998366349": {
+      "Type": "AWS::ApiGateway::Deployment",
+      "Properties": {
+        "RestApiId": {
+          "Ref": "ApiGatewayRestApi"
+        },
+        "StageName": "dev"
+      },
+      "DependsOn": [
+        "ApiGatewayMethodRideOptions",
+        "ApiGatewayMethodRidePost"
+      ]
+    },
+    "RequestUnicornLambdaPermissionApiGateway": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "RequestUnicornLambdaFunction",
+            "Arn"
+          ]
+        },
+        "Action": "lambda:InvokeFunction",
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Join": [
+            "",
+            [
+              "arn:",
+              {
+                "Ref": "AWS::Partition"
+              },
+              ":execute-api:",
+              {
+                "Ref": "AWS::Region"
+              },
+              ":",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              ":",
+              {
+                "Ref": "ApiGatewayRestApi"
+              },
+              "/*/*"
+            ]
+          ]
+        }
+      }
+    },
+    "RequestUnicornFunctionThrottlesAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/Lambda",
+        "MetricName": "Throttles",
+        "Threshold": 1,
+        "Period": 60,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "OKActions": [],
+        "AlarmActions": [],
+        "InsufficientDataActions": [],
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "RequestUnicornLambdaFunction"
+            }
+          }
+        ],
+        "TreatMissingData": "missing",
+        "Statistic": "Sum"
+      }
+    },
+    "RequestUnicornFunctionErrorsAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/Lambda",
+        "MetricName": "Errors",
+        "Threshold": 1,
+        "Period": 60,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "OKActions": [],
+        "AlarmActions": [],
+        "InsufficientDataActions": [],
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "RequestUnicornLambdaFunction"
+            }
+          }
+        ],
+        "TreatMissingData": "missing",
+        "Statistic": "Sum"
+      }
+    },
+    "RequestUnicornFunctionInvocationsAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/Lambda",
+        "MetricName": "Invocations",
+        "Threshold": 100,
+        "Period": 60,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "OKActions": [],
+        "AlarmActions": [],
+        "InsufficientDataActions": [],
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "RequestUnicornLambdaFunction"
+            }
+          }
+        ],
+        "TreatMissingData": "missing",
+        "Statistic": "Sum"
+      }
+    },
+    "RequestUnicornFunctionDurationAlarm": {
+      "Type": "AWS::CloudWatch::Alarm",
+      "Properties": {
+        "Namespace": "AWS/Lambda",
+        "MetricName": "Duration",
+        "Threshold": 500,
+        "Period": 60,
+        "EvaluationPeriods": 1,
+        "DatapointsToAlarm": 1,
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "OKActions": [],
+        "AlarmActions": [],
+        "InsufficientDataActions": [],
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "RequestUnicornLambdaFunction"
+            }
+          }
+        ],
+        "TreatMissingData": "missing",
+        "Statistic": "Average"
+      }
+    },
+    "AlertsDashboard": {
+      "Type": "AWS::CloudWatch::Dashboard",
+      "Properties": {
+        "DashboardName": "wildrydes-serverless-dev-us-east-1",
+        "DashboardBody": "{\"widgets\":[{\"type\":\"metric\",\"x\":0,\"y\":0,\"width\":8,\"height\":6,\"properties\":{\"title\":\"Errors\",\"view\":\"timeSeries\",\"stacked\":false,\"metrics\":[[\"AWS/Lambda\",\"Errors\",\"FunctionName\",\"wildrydes-serverless-dev-RequestUnicorn\",{\"stat\":\"Sum\",\"period\":900,\"region\":\"us-east-1\",\"label\":\"RequestUnicorn\"}]],\"region\":\"us-east-1\",\"period\":300}},{\"type\":\"metric\",\"x\":8,\"y\":0,\"width\":6,\"height\":6,\"properties\":{\"title\":\"Errors\",\"view\":\"singleValue\",\"metrics\":[[\"AWS/Lambda\",\"Errors\",\"FunctionName\",\"wildrydes-serverless-dev-RequestUnicorn\",{\"stat\":\"Sum\",\"period\":2592000,\"region\":\"us-east-1\",\"label\":\"RequestUnicorn\"}]],\"region\":\"us-east-1\",\"period\":300}},{\"type\":\"metric\",\"x\":14,\"y\":0,\"width\":10,\"height\":6,\"properties\":{\"title\":\"Duration\",\"view\":\"timeSeries\",\"stacked\":false,\"metrics\":[[\"AWS/Lambda\",\"Duration\",\"FunctionName\",\"wildrydes-serverless-dev-RequestUnicorn\",{\"stat\":\"p50\",\"period\":900,\"region\":\"us-east-1\",\"label\":\"RequestUnicorn p50\"}],[\"AWS/Lambda\",\"Duration\",\"FunctionName\",\"wildrydes-serverless-dev-RequestUnicorn\",{\"stat\":\"p90\",\"period\":900,\"region\":\"us-east-1\",\"label\":\"RequestUnicorn p90\"}]],\"region\":\"us-east-1\",\"period\":300}},{\"type\":\"metric\",\"x\":0,\"y\":6,\"width\":8,\"height\":6,\"properties\":{\"title\":\"Invocations\",\"view\":\"timeSeries\",\"stacked\":false,\"metrics\":[[\"AWS/Lambda\",\"Invocations\",\"FunctionName\",\"wildrydes-serverless-dev-RequestUnicorn\",{\"stat\":\"Sum\",\"period\":900,\"region\":\"us-east-1\",\"label\":\"RequestUnicorn\"}]],\"region\":\"us-east-1\",\"period\":300}},{\"type\":\"metric\",\"x\":8,\"y\":6,\"width\":6,\"height\":6,\"properties\":{\"title\":\"Invocations\",\"view\":\"singleValue\",\"metrics\":[[\"AWS/Lambda\",\"Invocations\",\"FunctionName\",\"wildrydes-serverless-dev-RequestUnicorn\",{\"stat\":\"Sum\",\"period\":2592000,\"region\":\"us-east-1\",\"label\":\"RequestUnicorn\"}]],\"region\":\"us-east-1\",\"period\":300}},{\"type\":\"metric\",\"x\":14,\"y\":6,\"width\":10,\"height\":6,\"properties\":{\"title\":\"API Requests\",\"view\":\"timeSeries\",\"stacked\":false,\"metrics\":[[\"AWS/ApiGateway\",\"5XXError\",\"ApiName\",\"dev-wildrydes-serverless\",{\"stat\":\"Sum\",\"period\":900}],[\"AWS/ApiGateway\",\"4XXError\",\"ApiName\",\"dev-wildrydes-serverless\",{\"stat\":\"Sum\",\"period\":900}],[\"AWS/ApiGateway\",\"Count\",\"ApiName\",\"dev-wildrydes-serverless\",{\"stat\":\"Sum\",\"period\":900}]],\"region\":\"us-east-1\"}},{\"type\":\"metric\",\"x\":0,\"y\":12,\"width\":8,\"height\":6,\"properties\":{\"title\":\"Throttles\",\"view\":\"timeSeries\",\"stacked\":false,\"metrics\":[[\"AWS/Lambda\",\"Throttles\",\"FunctionName\",\"wildrydes-serverless-dev-RequestUnicorn\",{\"stat\":\"Sum\",\"period\":900,\"region\":\"us-east-1\",\"label\":\"RequestUnicorn\"}]],\"region\":\"us-east-1\",\"period\":300}},{\"type\":\"metric\",\"x\":8,\"y\":12,\"width\":6,\"height\":6,\"properties\":{\"title\":\"Throttles\",\"view\":\"singleValue\",\"metrics\":[[\"AWS/Lambda\",\"Throttles\",\"FunctionName\",\"wildrydes-serverless-dev-RequestUnicorn\",{\"stat\":\"Sum\",\"period\":2592000,\"region\":\"us-east-1\",\"label\":\"RequestUnicorn\"}]],\"region\":\"us-east-1\",\"period\":300}},{\"type\":\"metric\",\"x\":14,\"y\":12,\"width\":10,\"height\":6,\"properties\":{\"title\":\"API Latency\",\"view\":\"timeSeries\",\"stacked\":false,\"metrics\":[[\"AWS/ApiGateway\",\"IntegrationLatency\",\"ApiName\",\"dev-wildrydes-serverless\",{\"stat\":\"p50\",\"period\":900,\"region\":\"us-east-1\"}],[\"AWS/ApiGateway\",\"Latency\",\"ApiName\",\"dev-wildrydes-serverless\",{\"stat\":\"p50\",\"period\":900,\"region\":\"us-east-1\"}],[\"AWS/ApiGateway\",\"IntegrationLatency\",\"ApiName\",\"dev-wildrydes-serverless\",{\"stat\":\"p90\",\"period\":900,\"region\":\"us-east-1\"}],[\"AWS/ApiGateway\",\"Latency\",\"ApiName\",\"dev-wildrydes-serverless\",{\"stat\":\"p90\",\"period\":900,\"region\":\"us-east-1\"}]],\"region\":\"us-east-1\"}}]}"
+      }
+    },
+    "CognitoUserPool": {
+      "Type": "AWS::Cognito::UserPool",
+      "Properties": {
+        "UserPoolName": "wildrydes-serverless-dev",
+        "AutoVerifiedAttributes": [
+          "email"
+        ],
+        "Schema": [
+          {
+            "Name": "email",
+            "Mutable": false,
+            "Required": true
+          }
+        ]
+      }
+    },
+    "CognitoUserPoolClient": {
+      "Type": "AWS::Cognito::UserPoolClient",
+      "Properties": {
+        "ClientName": "WildRydesWebApp",
+        "UserPoolId": {
+          "Ref": "CognitoUserPool"
+        },
+        "GenerateSecret": false
+      }
+    },
+    "DynamoTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "TableName": "wildrydes-serverless-dev",
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": "5",
+          "WriteCapacityUnits": "5"
+        },
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "RideId",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "RideId",
+            "KeyType": "HASH"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "ServerlessDeploymentBucketName": {
+      "Value": {
+        "Ref": "ServerlessDeploymentBucket"
+      }
+    },
+    "RequestUnicornLambdaFunctionQualifiedArn": {
+      "Description": "Current Lambda function version",
+      "Value": {
+        "Ref": "RequestUnicornLambdaVersionlj6La2axhiMAxxObxld2u6CRAhko1jZBghokKLAW4pU"
+      }
+    },
+    "ServiceEndpoint": {
+      "Description": "URL of the service endpoint",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "https://",
+            {
+              "Ref": "ApiGatewayRestApi"
+            },
+            ".execute-api.",
+            {
+              "Ref": "AWS::Region"
+            },
+            ".",
+            {
+              "Ref": "AWS::URLSuffix"
+            },
+            "/dev"
+          ]
+        ]
+      }
+    },
+    "UserPoolId": {
+      "Value": {
+        "Ref": "CognitoUserPool"
+      }
+    },
+    "UserPoolArn": {
+      "Value": {
+        "Fn::GetAtt": [
+          "CognitoUserPool",
+          "Arn"
+        ]
+      }
+    },
+    "UserPoolClientId": {
+      "Value": {
+        "Ref": "CognitoUserPoolClient"
+      }
+    }
+  }
+}
