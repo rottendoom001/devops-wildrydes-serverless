@@ -15,11 +15,10 @@ provider:
       Action:
         - "dynamodb:PutItem"
       Resource: !GetAtt DynamoTable.Arn
-    
-    - Effect: Allow
-     Action:
-       - codedeploy:*
-     Resource:
+    - Effect: "Allow"
+      Action:
+       - "codedeploy:*"
+      Resource:
        - "*"
       
 plugins:
